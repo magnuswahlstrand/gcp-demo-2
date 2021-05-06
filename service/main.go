@@ -10,11 +10,9 @@ import (
 	"golang.org/x/oauth2/jwt"
 	"html/template"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
-	"strconv"
 	"time"
 
 	secretmanager "cloud.google.com/go/secretmanager/apiv1"
@@ -43,78 +41,84 @@ var (
 	p12Secret  = os.Getenv("SERVICE_ACCOUNT")
 	jsonSecret = os.Getenv("SERVICE_ACCOUNT_JSON")
 
-	bucketName  = os.Getenv("BUCKET_NAME")
+	bucketName = os.Getenv("BUCKET_NAME")
 )
 
 func main() {
-	// Initialize template parameters.
-	service := os.Getenv("K_SERVICE")
-	if service == "" {
-		service = "???"
-	}
-
-	revision := os.Getenv("K_REVISION")
-	if revision == "" {
-		revision = "???"
-	}
-
-	// Create the client.
-	secret := getSecret(p12Secret)
-	log.Printf("Plaintext: %s\n", secret)
-
-	storageClient, err := storage.NewClient(context.Background())
-	if err != nil {
-		log.Fatalf("storage.NewClient: %v", err)
-	}
-
-	object := "loan.jpg"
-	bucket := storageClient.Bucket(bucketName).Object(object)
-
-	r, err := bucket.NewReader(context.Background())
-	if err != nil {
-		log.Fatalf("bucket.NewReader: %v", err)
-	}
-
-	b, err := ioutil.ReadAll(r)
-	if err != nil {
-		log.Fatalf("ioutil.ReadAll: %v", err)
-	}
-
-	accessID := "gcp-cats-demo@appspot.gserviceaccount.com"
-	url, err := storage.SignedURL(bucketName, object, &storage.SignedURLOptions{
-		GoogleAccessID: accessID,
-		PrivateKey:     []byte(secret),
-		Method:         "GET",
-		Expires:        time.Now().Add(5 * time.Minute),
-	})
-	if err != nil {
-		log.Fatalf("storage.SignedURL: %v", err)
-	}
-
-	urlPUT, err := storage.SignedURL(bucketName, uuid.NewString()+"/dog2.jpeg", &storage.SignedURLOptions{
-		GoogleAccessID: accessID,
-		PrivateKey:     []byte(secret),
-		Method:         "PUT",
-		Expires:        time.Now().Add(50 * time.Minute),
-	})
-
-	if err != nil {
-		log.Fatalf("storage.SignedURL: %v", err)
-	}
-
-	fmt.Println(url)
-
-	// Prepare template for execution.
+	//// Initialize template parameters.
+	//service := os.Getenv("K_SERVICE")
+	//if service == "" {
+	//	service = "???"
+	//}
+	//
+	//revision := os.Getenv("K_REVISION")
+	//if revision == "" {
+	//	revision = "???"
+	//}
+	//
+	//// Create the client.
+	//secret := getSecret(p12Secret)
+	//log.Printf("Plaintext: %s\n", secret)
+	//
+	//storageClient, err := storage.NewClient(context.Background())
+	//if err != nil {
+	//	log.Fatalf("storage.NewClient: %v", err)
+	//}
+	//
+	//object := "loan.jpg"
+	//bucket := storageClient.Bucket(bucketName).Object(object)
+	//
+	//r, err := bucket.NewReader(context.Background())
+	//if err != nil {
+	//	log.Fatalf("bucket.NewReader: %v", err)
+	//}
+	//
+	//b, err := ioutil.ReadAll(r)
+	//if err != nil {
+	//	log.Fatalf("ioutil.ReadAll: %v", err)
+	//}
+	//
+	//accessID := "gcp-cats-demo@appspot.gserviceaccount.com"
+	//url, err := storage.SignedURL(bucketName, object, &storage.SignedURLOptions{
+	//	GoogleAccessID: accessID,
+	//	PrivateKey:     []byte(secret),
+	//	Method:         "GET",
+	//	Expires:        time.Now().Add(5 * time.Minute),
+	//})
+	//if err != nil {
+	//	log.Fatalf("storage.SignedURL: %v", err)
+	//}
+	//
+	//urlPUT, err := storage.SignedURL(bucketName, uuid.NewString()+"/dog2.jpeg", &storage.SignedURLOptions{
+	//	GoogleAccessID: accessID,
+	//	PrivateKey:     []byte(secret),
+	//	Method:         "PUT",
+	//	Expires:        time.Now().Add(50 * time.Minute),
+	//})
+	//
+	//if err != nil {
+	//	log.Fatalf("storage.SignedURL: %v", err)
+	//}
+	//
+	//fmt.Println(url)
+	//
+	//// Prepare template for execution.
 	tmpl = template.Must(template.ParseFS(fs, "index.html"))
-
+	//
 	data2 = map[string]string{
-		"Service": service,
+		"Service": "service",
 		//"Secret":     secret,
-		"URL":        url,
-		"PutURL":     urlPUT,
-		"BucketName": bucket.ObjectName(),
-		"Len":        strconv.Itoa(len(b)),
+		"URL":    "url",
+		"PutURL": "urlPUT",
 	}
+	//data2 = map[string]string{
+	//	"Service": service,
+	//	//"Secret":     secret,
+	//	"URL":        url,
+	//	"PutURL":     urlPUT,
+	//	"BucketName": bucket.ObjectName(),
+	//	"Len":        strconv.Itoa(len(b)),
+	//}
 
 	// Define HTTP server.
 	http.HandleFunc("/", helloRunHandler)
@@ -185,7 +189,6 @@ func helloFormHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println(policy.URL)
 }
 
-
 // form is a template for an HTML form that will use the data from the signed
 var form = `
 <html>
@@ -208,7 +211,7 @@ var tmpl2 = template.Must(template.New("policyV4").Parse(form))
 // generateSignedPostPolicyV4 generates a signed post policy.
 func generateSignedPostPolicyV4(w io.Writer, bucket, object string, conf *jwt.Config) (*storage.PostPolicyV4, error) {
 	metadata := map[string]string{
-		"x-goog-meta-test":        "data",
+		"x-goog-meta-test": "data",
 	}
 
 	opts := &storage.PostPolicyV4Options{
@@ -216,7 +219,7 @@ func generateSignedPostPolicyV4(w io.Writer, bucket, object string, conf *jwt.Co
 		PrivateKey:     conf.PrivateKey,
 		Expires:        time.Now().Add(30 * time.Minute),
 		Fields: &storage.PolicyV4Fields{
-			Metadata:               metadata,
+			Metadata: metadata,
 			//StatusCodeOnSuccess:    201,
 			RedirectToURLOnSuccess: "http://localhost:8080",
 		},
