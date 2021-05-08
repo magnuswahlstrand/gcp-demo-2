@@ -50,13 +50,17 @@ func generateSignedPostPolicyV4(bucket, objectName string, redirectURL string) (
 		"x-goog-meta-test": "data",
 	}
 
+	var maxUploadSize uint64 = 1 * 1000 * 1000
 	opts := &storage.PostPolicyV4Options{
 		GoogleAccessID: conf.Email,
 		PrivateKey:     conf.PrivateKey,
-		Expires:        time.Now().Add(30 * time.Minute),
+		Expires:        time.Now().Add(10 * time.Minute),
 		Fields: &storage.PolicyV4Fields{
 			Metadata:               metadata,
 			RedirectToURLOnSuccess: redirectURL + "/redirect",
+		},
+		Conditions: []storage.PostPolicyV4Condition{
+			storage.ConditionContentLengthRange(0, maxUploadSize),
 		},
 	}
 
@@ -68,7 +72,7 @@ func generateSignedPostPolicyV4(bucket, objectName string, redirectURL string) (
 	return policy, nil
 }
 
-func generateV4GetObjectSignedURL(bucket, object string, conf *jwt.Config, ) (string, error) {
+func generateV4GetObjectSignedURL(bucket, object string, conf *jwt.Config) (string, error) {
 
 	opts := &storage.SignedURLOptions{
 		Scheme:         storage.SigningSchemeV4,

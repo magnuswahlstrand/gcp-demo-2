@@ -6,6 +6,6 @@ output "BUCKET_NAME" {
   value = google_storage_bucket.upload_storage.name
 }
 
-output "SERVICE_ACCOUNT_JSON" {
+output "SECRET_SERVICE_CREDENTIALS" {
   value = google_secret_manager_secret_version.secret_version_one.name
 }

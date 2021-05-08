@@ -44,17 +44,15 @@ func init() {
 	}
 	bucketName = os.Getenv("BUCKET_NAME")
 
-	if os.Getenv("SERVICE_ACCOUNT_JSON") == "" {
-		log.Fatal("env var SERVICE_ACCOUNT_JSON missing")
+	if os.Getenv("SECRET_SERVICE_CREDENTIALS") == "" {
+		log.Fatal("env var SECRET_SERVICE_CREDENTIALS missing")
 	}
-	secretName = os.Getenv("SERVICE_ACCOUNT_JSON")
-
+	secretName = os.Getenv("SECRET_SERVICE_CREDENTIALS")
 	var err error
 	conf, err = getConf()
 	if err != nil {
 		log.Fatal("failed to get credentials", err)
 	}
-
 	logger = log.Default()
 }
 

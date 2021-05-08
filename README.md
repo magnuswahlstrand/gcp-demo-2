@@ -44,7 +44,7 @@ terraform apply
 ## TODO
 * [ ] Make `files` cache safe for concurrency
 * [ ] URL shortener
-* [ ] Limit upload max size
+* [x] Limit upload max size
 * [ ] Update README 
   * [ ] Complete installation steps
   * [ ] Description of signed URLs

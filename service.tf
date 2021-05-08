@@ -35,7 +35,7 @@ resource "google_cloud_run_service" "upload" {
           value = google_storage_bucket.upload_storage.name
         }
         env {
-          name = "SERVICE_ACCOUNT_JSON"
+          name = "SECRET_SERVICE_CREDENTIALS"
           value = google_secret_manager_secret_version.secret_version_one.name
         }
       }
