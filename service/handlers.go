@@ -72,8 +72,8 @@ func qrCodeHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Println("yes7")
 	log.Println("yes7")
-	if err := tmpl3.Execute(w, data); err != nil {
-		log.Printf("tmpl3.Execute: %v", err)
+	if err := templateQRCode.Execute(w, data); err != nil {
+		log.Printf("templateQRCode.Execute: %v", err)
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}

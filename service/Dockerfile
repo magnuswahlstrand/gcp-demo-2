@@ -27,7 +27,6 @@ ENV GOTRACEBACK=single
 # Copy template & assets
 WORKDIR /hello-world
 COPY --from=build /app ./app
-COPY index.html index.html
 COPY assets assets/
 
 ENTRYPOINT ["./app"]

@@ -15,49 +15,43 @@ import (
 	"os"
 )
 
-//go:embed index.html
-var fs embed.FS
+//go:embed *.gohtml
+var templatesFS embed.FS
 
 //go:embed assets/*
 var assertsFS embed.FS
-
-// templateData provides template parameters.
-type templateData struct {
-	Service  string
-	Revision string
-	Secret   string
-}
-
-// Variables used to generate the HTML page.
-var (
-	data  templateData
-	data2 map[string]string
-	tmpl  *template.Template
-
-	jsonSecret = os.Getenv("SERVICE_ACCOUNT_JSON")
-	bucketName = os.Getenv("BUCKET_NAME")
-
-	files = map[uuid.UUID]file{}
-)
 
 type file struct {
 	oid        uuid.UUID
 	objectName string
 }
 
-func main() {
-	tmpl = template.Must(template.ParseFS(fs, "index.html"))
+var (
+	files = map[uuid.UUID]file{}
 
-	data2 = map[string]string{
-		"Service": "service",
-		//"Secret":     secret,
+	templateUpload, templateQRCode *template.Template
 
-		"URL":    "url",
-		"PutURL": "urlPUT",
+	bucketName string
+	secretName string
+)
+
+func init() {
+	templateUpload = template.Must(template.New("upload.gohtml").ParseFS(templatesFS, "upload.gohtml"))
+	templateQRCode = template.Must(template.New("qrcode.gohtml").ParseFS(templatesFS, "qrcode.gohtml"))
+
+
+	if os.Getenv("BUCKET_NAME") == "" {
+		log.Fatal("env var BUCKET_NAME missing")
 	}
+	bucketName = os.Getenv("BUCKET_NAME")
 
-	// Define HTTP server.
-	//http.HandleFunc("/", helloRunHandler)
+	if os.Getenv("SERVICE_ACCOUNT_JSON") == "" {
+		log.Fatal("env var SERVICE_ACCOUNT_JSON missing")
+	}
+	secretName = os.Getenv("SERVICE_ACCOUNT_JSON")
+}
+
+func main() {
 	http.HandleFunc("/", helloFormHandler)
 	http.HandleFunc("/qr_code", qrCodeHandler)
 	http.HandleFunc("/redirect", redirectHandler)
@@ -77,7 +71,6 @@ func main() {
 	if err := http.ListenAndServe(":"+port, nil); err != nil {
 		log.Fatal(err)
 	}
-
 }
 
 func getSecret(name string) (string, error) {
@@ -87,27 +80,22 @@ func getSecret(name string) (string, error) {
 		return "", err
 	}
 
-	// Build the request.
 	req := &secretmanagerpb.AccessSecretVersionRequest{
 		Name: name,
 	}
 
-	// Call the API.
 	result, err := client.AccessSecretVersion(ctx, req)
 	if err != nil {
 		return "", err
 	}
 
-	// WARNING: Do not print the secret in a production environment - this snippet
-	// is showing how to access the secret material.
-	secret := string(result.Payload.Data)
-	return secret, nil
+	return string(result.Payload.Data), nil
 }
 
 func getConf() (*jwt.Config, error) {
-	secret, err := getSecret(jsonSecret)
+	secret, err := getSecret(secretName)
 	if err != nil {
-		return nil, fmt.Errorf("getSecret(%s): %w", jsonSecret, err)
+		return nil, fmt.Errorf("getSecret(%s): %w", secretName, err)
 
 	}
 
@@ -117,36 +105,3 @@ func getConf() (*jwt.Config, error) {
 	}
 	return conf, nil
 }
-
-// form is a template for an HTML form that will use the data from the signed
-var form = `
-<html>
-  <body>
-	<form action="{{ .URL }}" method="POST" enctype="multipart/form-data">
-			{{- range $name, $value := .Fields }}
-			<input name="{{ $name }}" value="{{ $value }}" type="hidden"/>
-			{{- end }}
-			<input type="file" name="file"/><br />
-			<input type="submit" value="Upload File" /><br />
-	</form>
-  </body>
-</html>
-`
-
-var qrCode = `
-<html>
-    <head>
-        <title>Testing QR code</title>
-    </head>
-    <body>
-		<div>
-		  <img src="data:image/png;base64, {{ .Base64EncodedImage }}" width=400 height=400 />
-		</div>
-    </body>
-</html>
-`
-
-// post policy.
-
-var tmpl2 = template.Must(template.New("policyV4").Parse(form))
-var tmpl3 = template.Must(template.New("qrCode").Parse(qrCode))

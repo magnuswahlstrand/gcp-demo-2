@@ -31,7 +31,7 @@ func generateSignedPostPolicyV4(w io.Writer, bucket string, conf *jwt.Config, re
 	}
 
 	// Generate the form, using the data from the policy.
-	if err = tmpl2.Execute(w, policy); err != nil {
+	if err = templateUpload.Execute(w, policy); err != nil {
 		return policy, fmt.Errorf("executing template: %v", err)
 	}
 

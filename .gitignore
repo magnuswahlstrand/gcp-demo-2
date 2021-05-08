@@ -1,4 +1,5 @@
 .idea
+.run
 .DS_Store
 
 # Local .terraform directories
