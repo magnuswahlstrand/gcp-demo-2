@@ -2,6 +2,8 @@ package main
 
 import (
 	"embed"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
 	"golang.org/x/oauth2/jwt"
 	"html/template"
@@ -30,12 +32,12 @@ var (
 	secretName string
 
 	conf *jwt.Config
+	logger *log.Logger
 )
 
 func init() {
 	templateUpload = template.Must(template.New("upload.gohtml").ParseFS(templatesFS, "templates/upload.gohtml"))
 	templateQRCode = template.Must(template.New("qrcode.gohtml").ParseFS(templatesFS, "templates/qrcode.gohtml"))
-
 
 	if os.Getenv("BUCKET_NAME") == "" {
 		log.Fatal("env var BUCKET_NAME missing")
@@ -52,26 +54,31 @@ func init() {
 	if err != nil {
 		log.Fatal("failed to get credentials", err)
 	}
+
+	logger = log.Default()
 }
 
 func main() {
-	http.HandleFunc("/", uploadHandler)
-	http.HandleFunc("/qr_code", qrCodeHandler)
-	http.HandleFunc("/redirect", redirectHandler)
+	r := chi.NewRouter()
 
-	fileServer := http.FileServer(http.FS(assertsFS))
-	http.Handle("/assets/", fileServer)
+	// A good base middleware stack
+	r.Use(middleware.RequestID)
+	r.Use(middleware.RealIP)
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
 
-	// PORT environment variable is provided by Cloud Run.
+	r.Get("/", uploadHandler)
+	r.Get("/qr_code", qrCodeHandler)
+	r.Get("/redirect", redirectHandler)
+	r.Handle("/assets/", http.FileServer(http.FS(assertsFS)))
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
 
-	log.Print("Hello from Cloud Run! The container started successfully and is listening for HTTP requests on $PORT")
-	log.Printf("Listening on port %s", port)
-
-	if err := http.ListenAndServe(":"+port, nil); err != nil {
+	logger.Printf("hello from cloud run! the container started successfully and is listening for HTTP requests on %s", port)
+	if err := http.ListenAndServe(":"+port, r); err != nil {
 		log.Fatal(err)
 	}
 }

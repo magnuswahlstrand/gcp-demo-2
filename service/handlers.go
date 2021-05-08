@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/yeqown/go-qrcode"
-	"log"
 	"net/http"
 	"strings"
 )
@@ -15,21 +14,20 @@ import (
 func uploadHandler(w http.ResponseWriter, r *http.Request) {
 	policy, err := uploadPolicy(r)
 	if err != nil {
-		log.Printf("uploadPolicy: %v", err)
+		logger.Printf("uploadPolicy: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	// Generate the form, using the data from the policy.
 	if err = templateUpload.Execute(w, policy); err != nil {
-		log.Printf("templateUpload.Execute: %v", err)
+		logger.Printf("templateUpload.Execute: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
 
 func uploadPolicy(r *http.Request) (*storage.PostPolicyV4, error) {
-	// Construct redirect URL
 	var redirectURL string
 	if strings.HasPrefix(r.Host, "localhost") {
 		redirectURL = "http://" + r.Host
@@ -49,74 +47,62 @@ func uploadPolicy(r *http.Request) (*storage.PostPolicyV4, error) {
 	files[oid] = file{
 		oid: oid,
 	}
-	log.Println("saving file id", oid.String())
-	log.Println(policy.URL)
-	log.Println()
 	return policy, nil
 }
 
 func qrCodeHandler(w http.ResponseWriter, r *http.Request) {
-	log.Println("qr_code_handler")
-
-	oid, err := uuid.Parse(r.URL.Query().Get("id"))
+	qrCodeImage, err := qrCode(r)
 	if err != nil {
-		log.Printf("uuid.Parse: %v", err)
-		http.Error(w, "forbidden", http.StatusForbidden)
-		return
-	}
-	log.Println("yes")
-
-	f, ok := files[oid]
-	if !ok {
-		log.Printf("missing file: %v", oid)
-		http.Error(w, "forbidden", http.StatusForbidden)
+		logger.Printf("qrCode: %v", err)
+		http.Error(w, err.Error(), http.StatusForbidden)
 		return
 	}
 
-	log.Println("yes2")
-	url, err := generateV4GetObjectSignedURL(bucketName, f.objectName, conf)
-	if err != nil {
-		log.Printf("generateV4GetObjectSignedURL: %v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	log.Println("yes4")
-	qrc, err := qrcode.New(url, qrcode.WithQRWidth(5))
-	if err != nil {
-		log.Printf("could not generate QRCode: %v", err)
-		return
-	}
-	log.Println("yes5", url)
-
-	var b bytes.Buffer
-
-	log.Println("yes6", b.Len(), b.Cap())
-	b64writer := base64.NewEncoder(base64.StdEncoding, &b)
-	defer b64writer.Close()
-	log.Println("yes7", b.Len(), b.Cap())
-	if err := qrc.SaveTo(b64writer); err != nil {
-		log.Printf("qrc.SaveTo: %v\n", err)
-		return
-	}
-	log.Println("yes8", b.Len(), b.Cap())
-
-	data := map[string]string{
-		"Base64EncodedImage": b.String(),
-	}
-
+	data := map[string]string{"Base64EncodedImage": qrCodeImage}
 	if err := templateQRCode.Execute(w, data); err != nil {
-		log.Printf("templateQRCode.Execute: %v", err)
-		http.Error(w, "forbidden", http.StatusForbidden)
+		logger.Printf("templateQRCode.Execute: %v", err)
+		http.Error(w, err.Error(), http.StatusForbidden)
 		return
 	}
 }
 
+
+func qrCode(r *http.Request) (string, error){
+	oid, err := uuid.Parse(r.URL.Query().Get("id"))
+	if err != nil {
+		return "", fmt.Errorf("uuid.Parse: %v", err)
+	}
+
+	f, ok := files[oid]
+	if !ok {
+		return "", fmt.Errorf("missing file: %v", oid)
+	}
+
+	url, err := generateV4GetObjectSignedURL(bucketName, f.objectName, conf)
+	if err != nil {
+		return "", fmt.Errorf("generateV4GetObjectSignedURL: %v", err)
+	}
+
+	qrc, err := qrcode.New(url, qrcode.WithQRWidth(5))
+	if err != nil {
+		return "", fmt.Errorf("could not generate QRCode: %v", err)
+	}
+
+	var b bytes.Buffer
+	b64writer := base64.NewEncoder(base64.StdEncoding, &b)
+	defer b64writer.Close()
+	if err := qrc.SaveTo(b64writer); err != nil {
+		return "", fmt.Errorf("qrc.SaveTo: %v\n", err)
+	}
+
+	return b.String(), nil
+}
+
 func redirectHandler(w http.ResponseWriter, r *http.Request) {
-	log.Println("redirect_handler")
+	logger.Println("redirect_handler")
 	url, err := redirectURL(r)
 	if err != nil {
-		log.Printf("redirectURL: %v", err)
+		logger.Printf("redirectURL: %v", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -125,8 +111,6 @@ func redirectHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func redirectURL(r *http.Request) (string, error){
-	log.Println("redirect_handler")
-
 	bucket := r.URL.Query().Get("bucket")
 	if bucket != bucketName {
 		return "", fmt.Errorf("unexpected bucket name: %s", bucket)
@@ -153,8 +137,6 @@ func redirectURL(r *http.Request) (string, error){
 	}
 	f.objectName = key
 	files[oid] = f
-
-	log.Println("file found!", f.oid, ",", f.objectName)
 
 	return "../qr_code?id="+oid.String(), nil
 }
