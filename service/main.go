@@ -1,21 +1,16 @@
 package main
 
 import (
-	secretmanager "cloud.google.com/go/secretmanager/apiv1"
-	"context"
 	"embed"
-	"fmt"
 	"github.com/google/uuid"
-	"golang.org/x/oauth2/google"
 	"golang.org/x/oauth2/jwt"
-	secretmanagerpb "google.golang.org/genproto/googleapis/cloud/secretmanager/v1"
 	"html/template"
 	"log"
 	"net/http"
 	"os"
 )
 
-//go:embed *.gohtml
+//go:embed templates/*.gohtml
 var templatesFS embed.FS
 
 //go:embed assets/*
@@ -33,11 +28,13 @@ var (
 
 	bucketName string
 	secretName string
+
+	conf *jwt.Config
 )
 
 func init() {
-	templateUpload = template.Must(template.New("upload.gohtml").ParseFS(templatesFS, "upload.gohtml"))
-	templateQRCode = template.Must(template.New("qrcode.gohtml").ParseFS(templatesFS, "qrcode.gohtml"))
+	templateUpload = template.Must(template.New("upload.gohtml").ParseFS(templatesFS, "templates/upload.gohtml"))
+	templateQRCode = template.Must(template.New("qrcode.gohtml").ParseFS(templatesFS, "templates/qrcode.gohtml"))
 
 
 	if os.Getenv("BUCKET_NAME") == "" {
@@ -49,10 +46,16 @@ func init() {
 		log.Fatal("env var SERVICE_ACCOUNT_JSON missing")
 	}
 	secretName = os.Getenv("SERVICE_ACCOUNT_JSON")
+
+	var err error
+	conf, err = getConf()
+	if err != nil {
+		log.Fatal("failed to get credentials", err)
+	}
 }
 
 func main() {
-	http.HandleFunc("/", helloFormHandler)
+	http.HandleFunc("/", uploadHandler)
 	http.HandleFunc("/qr_code", qrCodeHandler)
 	http.HandleFunc("/redirect", redirectHandler)
 
@@ -71,37 +74,4 @@ func main() {
 	if err := http.ListenAndServe(":"+port, nil); err != nil {
 		log.Fatal(err)
 	}
-}
-
-func getSecret(name string) (string, error) {
-	ctx := context.Background()
-	client, err := secretmanager.NewClient(ctx)
-	if err != nil {
-		return "", err
-	}
-
-	req := &secretmanagerpb.AccessSecretVersionRequest{
-		Name: name,
-	}
-
-	result, err := client.AccessSecretVersion(ctx, req)
-	if err != nil {
-		return "", err
-	}
-
-	return string(result.Payload.Data), nil
-}
-
-func getConf() (*jwt.Config, error) {
-	secret, err := getSecret(secretName)
-	if err != nil {
-		return nil, fmt.Errorf("getSecret(%s): %w", secretName, err)
-
-	}
-
-	conf, err := google.JWTConfigFromJSON([]byte(secret))
-	if err != nil {
-		return nil, fmt.Errorf("google.JWTConfigFromJSON: %w", err)
-	}
-	return conf, nil
 }

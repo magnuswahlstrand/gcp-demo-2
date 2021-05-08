@@ -1,16 +1,51 @@
 package main
 
 import (
+	secretmanager "cloud.google.com/go/secretmanager/apiv1"
 	"cloud.google.com/go/storage"
+	"context"
 	"fmt"
-	"github.com/google/uuid"
+	"golang.org/x/oauth2/google"
 	"golang.org/x/oauth2/jwt"
-	"io"
+	secretmanagerpb "google.golang.org/genproto/googleapis/cloud/secretmanager/v1"
 	"time"
 )
 
+func getSecret(name string) (string, error) {
+	ctx := context.Background()
+	client, err := secretmanager.NewClient(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	req := &secretmanagerpb.AccessSecretVersionRequest{
+		Name: name,
+	}
+
+	result, err := client.AccessSecretVersion(ctx, req)
+	if err != nil {
+		return "", err
+	}
+
+	return string(result.Payload.Data), nil
+}
+
+func getConf() (*jwt.Config, error) {
+	secret, err := getSecret(secretName)
+	if err != nil {
+		return nil, fmt.Errorf("getSecret(%s): %w", secretName, err)
+
+	}
+
+	conf, err := google.JWTConfigFromJSON([]byte(secret))
+	if err != nil {
+		return nil, fmt.Errorf("google.JWTConfigFromJSON: %w", err)
+	}
+	return conf, nil
+}
+
 // generateSignedPostPolicyV4 generates a signed post policy.
-func generateSignedPostPolicyV4(w io.Writer, bucket string, conf *jwt.Config, redirectURL string, objectID uuid.UUID) (*storage.PostPolicyV4, error) {
+func generateSignedPostPolicyV4(bucket, objectName string, redirectURL string) (*storage.PostPolicyV4, error) {
 	metadata := map[string]string{
 		"x-goog-meta-test": "data",
 	}
@@ -25,14 +60,9 @@ func generateSignedPostPolicyV4(w io.Writer, bucket string, conf *jwt.Config, re
 		},
 	}
 
-	policy, err := storage.GenerateSignedPostPolicyV4(bucket, objectID.String()+"/${filename}", opts)
+	policy, err := storage.GenerateSignedPostPolicyV4(bucket, objectName, opts)
 	if err != nil {
 		return nil, fmt.Errorf("storage.GenerateSignedPostPolicyV4: %v", err)
-	}
-
-	// Generate the form, using the data from the policy.
-	if err = templateUpload.Execute(w, policy); err != nil {
-		return policy, fmt.Errorf("executing template: %v", err)
 	}
 
 	return policy, nil

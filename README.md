@@ -9,11 +9,11 @@ gcloud builds submit --project gcp-upload-demo
 terraform apply
 ```
 
-
 ## TODO
 * [ ] Fix correct redirect url after POST
 * [ ] Clean up older uploads
-* [ ] Add QR code
+* [x] Add QR code
 * [ ] URL shortener
-* [ ] Avoid duplicate names
+* [x] Avoid duplicate names
+* [ ] Make `files` cache safe for concurrency 
 * [ ] Upload max size
