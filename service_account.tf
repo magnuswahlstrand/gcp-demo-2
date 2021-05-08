@@ -21,7 +21,9 @@ resource "google_secret_manager_secret" "worker_key" {
   }
 
   depends_on = [
-    google_service_account.worker]
+    google_service_account.worker,
+    google_project_service.secretmanager,
+  ]
 }
 
 resource "google_secret_manager_secret_version" "secret_version_one" {
